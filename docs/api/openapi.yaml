@@ -221,7 +221,7 @@ components:
           description: 名ふりがな
         division:
           type: string
-          description: 部門（例: 一般、シニア）
+          description: "部門（例: 一般、シニア）"
         matchType:
           type: string
           enum:
@@ -288,7 +288,7 @@ components:
       properties:
         field:
           type: string
-          description: フィールドパス（例: `tournament.name`, `participants[0].lastName`）
+          description: "フィールドパス（例: `tournament.name`, `participants[0].lastName`）"
         message:
           type: string
 
