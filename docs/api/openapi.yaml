@@ -1,0 +1,303 @@
+openapi: 3.1.0
+info:
+  title: Rally Cloud Functions API
+  description: |
+    外部サービスから Rally へデータを連携するための REST API。
+
+    すべてのエンドポイントは Bearer トークン認証が必要です。
+    リクエストボディは Firebase Callable 形式 (`{"data": {...}}`) でラップしてください。
+  version: 1.0.0
+
+servers:
+  - url: https://{region}-{projectId}.cloudfunctions.net
+    description: Cloud Functions
+    variables:
+      region:
+        default: asia-northeast1
+      projectId:
+        default: your-project-id
+
+security:
+  - BearerAuth: []
+
+paths:
+  /importTournament:
+    post:
+      operationId: importTournament
+      summary: 大会・参加者一括インポート
+      description: |
+        大会と参加者を1リクエストで一括登録します。
+        Firestore への書き込みはバッチで行われるため、部分的な書き込みは発生しません。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - data
+              properties:
+                data:
+                  $ref: "#/components/schemas/ImportTournamentData"
+            example:
+              data:
+                tournament:
+                  name: 第1回バドミントン大会
+                  type: individual
+                  courtCount: 4
+                  courtAssignment: sequential
+                  finalsRule: none
+                participants:
+                  - lastName: 山田
+                    firstName: 太郎
+                    lastNameFurigana: ヤマダ
+                    firstNameFurigana: タロウ
+                    division: 一般
+                    matchType: singles
+                    team: ABC クラブ
+                  - lastName: 佐藤
+                    firstName: 花子
+                    matchType: doubles
+                    partnerLastName: 鈴木
+                    partnerFirstName: 一郎
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    $ref: "#/components/schemas/ImportTournamentResult"
+              example:
+                result:
+                  tournamentId: 550e8400-e29b-41d4-a716-446655440000
+                  participantIds:
+                    - 6ba7b810-9dad-11d1-80b4-00c04fd430c8
+                    - 6ba7b811-9dad-11d1-80b4-00c04fd430c8
+        "400":
+          description: バリデーションエラーまたはリクエスト形式エラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                validation:
+                  summary: バリデーションエラー
+                  value:
+                    error:
+                      status: INVALID_ARGUMENT
+                      message: バリデーションエラーがあります
+                      details:
+                        - field: tournament.name
+                          message: name は必須です
+                        - field: participants[1].matchType
+                          message: matchType は singles または doubles である必要があります
+                malformed:
+                  summary: リクエスト形式エラー
+                  value:
+                    error:
+                      status: INVALID_ARGUMENT
+                      message: リクエストの形式が不正です
+        "401":
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthError"
+              examples:
+                missing:
+                  summary: ヘッダーなし
+                  value:
+                    status: UNAUTHENTICATED
+                    message: Authorization ヘッダーが必要です
+                invalid_format:
+                  summary: Bearer プレフィックスなし
+                  value:
+                    status: UNAUTHENTICATED
+                    message: Bearer トークンの形式が不正です
+                wrong_token:
+                  summary: トークン不一致
+                  value:
+                    status: UNAUTHENTICATED
+                    message: トークンが無効です
+        "500":
+          description: サーバー内部エラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  status: INTERNAL
+                  message: インポートに失敗しました
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: 環境変数 `API_SECRET_TOKEN` に設定されたトークン
+
+  schemas:
+    ImportTournamentData:
+      type: object
+      required:
+        - tournament
+      properties:
+        tournament:
+          $ref: "#/components/schemas/TournamentInput"
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/ParticipantInput"
+          description: 参加者の配列（空配列も可）
+
+    TournamentInput:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: 大会名
+        type:
+          type: string
+          enum:
+            - individual
+            - team
+          default: individual
+          description: |
+            大会種別
+            - `individual`: 個人戦
+            - `team`: 団体戦
+        courtCount:
+          type: integer
+          minimum: 1
+          default: 1
+          description: コート数
+        courtAssignment:
+          type: string
+          enum:
+            - fixed
+            - sequential
+            - hybrid
+          default: sequential
+          description: |
+            コート割り当て方式
+            - `fixed`: コート固定 — 試合番号順にコートへ割り当て、コートが空くまで次の試合は行わない
+            - `sequential`: 流し込み — 空きコートに試合番号が小さい順から割り当てる
+            - `hybrid`: ハイブリッド — `hybridThreshold` 巡目まではコート固定、以降は流し込み
+        hybridThreshold:
+          type: integer
+          minimum: 1
+          description: ハイブリッド方式の場合のみ。n巡目まで固定。`courtAssignment` が `hybrid` の場合に必須
+        finalsRule:
+          type: string
+          default: none
+          description: 決勝トーナメントルール
+        seedingMethod:
+          type: string
+          description: シード方式
+
+    ParticipantInput:
+      type: object
+      required:
+        - lastName
+        - matchType
+      properties:
+        lastName:
+          type: string
+          description: 姓
+        firstName:
+          type: string
+          description: 名
+        lastNameFurigana:
+          type: string
+          description: 姓ふりがな
+        firstNameFurigana:
+          type: string
+          description: 名ふりがな
+        division:
+          type: string
+          description: 部門（例: 一般、シニア）
+        matchType:
+          type: string
+          enum:
+            - singles
+            - doubles
+          description: |
+            試合種別
+            - `singles`: シングルス
+            - `doubles`: ダブルス
+        team:
+          type: string
+          description: 所属チーム
+        partnerLastName:
+          type: string
+          description: パートナー姓（`matchType` が `doubles` の場合に必須）
+        partnerFirstName:
+          type: string
+          description: パートナー名
+        partnerLastNameFurigana:
+          type: string
+          description: パートナー姓ふりがな
+        partnerFirstNameFurigana:
+          type: string
+          description: パートナー名ふりがな
+        partnerTeam:
+          type: string
+          description: パートナー所属チーム
+
+    ImportTournamentResult:
+      type: object
+      properties:
+        tournamentId:
+          type: string
+          format: uuid
+          description: 作成された大会の ID
+        participantIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: 作成された参加者の ID（リクエストの participants 配列と同じ順序）
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            status:
+              type: string
+              enum:
+                - INVALID_ARGUMENT
+                - NOT_FOUND
+                - INTERNAL
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                $ref: "#/components/schemas/FieldError"
+
+    FieldError:
+      type: object
+      properties:
+        field:
+          type: string
+          description: フィールドパス（例: `tournament.name`, `participants[0].lastName`）
+        message:
+          type: string
+
+    AuthError:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - UNAUTHENTICATED
+        message:
+          type: string
