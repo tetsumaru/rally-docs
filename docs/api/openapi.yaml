@@ -122,6 +122,33 @@ paths:
                   value:
                     status: UNAUTHENTICATED
                     message: トークンが無効です
+                empty_token:
+                  summary: トークンが空
+                  value:
+                    status: UNAUTHENTICATED
+                    message: トークンが空です
+                revoked:
+                  summary: 失効済みトークン
+                  value:
+                    status: UNAUTHENTICATED
+                    message: トークンは失効しています
+                expired:
+                  summary: 有効期限切れ
+                  value:
+                    status: UNAUTHENTICATED
+                    message: トークンの有効期限が切れています
+        "403":
+          description: 権限エラー（トークンは有効だがスコープ不足）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthError"
+              examples:
+                scope_denied:
+                  summary: スコープ不足
+                  value:
+                    status: PERMISSION_DENIED
+                    message: このトークンには必要なスコープがありません
         "500":
           description: サーバー内部エラー
           content:
@@ -301,5 +328,6 @@ components:
           type: string
           enum:
             - UNAUTHENTICATED
+            - PERMISSION_DENIED
         message:
           type: string
