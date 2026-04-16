@@ -138,7 +138,9 @@ components:
     BearerAuth:
       type: http
       scheme: bearer
-      description: 環境変数 `API_SECRET_TOKEN` に設定されたトークン
+      description: |
+        発行された API トークンを `Authorization: Bearer <token>` として送信する。
+        トークンは運営側から個別に発行され、発行時にのみ提示される。
 
   schemas:
     ImportTournamentData:
