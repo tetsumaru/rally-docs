@@ -39,27 +39,132 @@ paths:
               properties:
                 data:
                   $ref: "#/components/schemas/ImportTournamentData"
-            example:
-              data:
-                tournament:
-                  name: 第1回バドミントン大会
-                  type: individual
-                  courtCount: 4
-                  courtAssignment: sequential
-                  finalsRule: none
-                participants:
-                  - lastName: 山田
-                    firstName: 太郎
-                    lastNameFurigana: ヤマダ
-                    firstNameFurigana: タロウ
-                    division: 一般
-                    matchType: singles
-                    team: ABC クラブ
-                  - lastName: 佐藤
-                    firstName: 花子
-                    matchType: doubles
-                    partnerLastName: 鈴木
-                    partnerFirstName: 一郎
+            examples:
+              basic:
+                summary: 基本的なシングルス・ダブルス登録
+                value:
+                  data:
+                    tournament:
+                      name: 第1回バドミントン大会
+                      type: individual
+                      courtCount: 4
+                      courtAssignment: sequential
+                      finalsRule: none
+                    participants:
+                      - lastName: 山田
+                        firstName: 太郎
+                        lastNameFurigana: ヤマダ
+                        firstNameFurigana: タロウ
+                        division: 一般
+                        matchType: singles
+                        team: ABC クラブ
+                      - lastName: 佐藤
+                        firstName: 花子
+                        division: 一般
+                        matchType: doubles
+                        partnerLastName: 鈴木
+                        partnerFirstName: 一郎
+              multi_entry:
+                summary: 同一選手がシングルスとダブルス両方にエントリー
+                value:
+                  data:
+                    tournament:
+                      name: 春季大会
+                      type: individual
+                      courtCount: 3
+                      courtAssignment: sequential
+                      finalsRule: none
+                    participants:
+                      - lastName: 山田
+                        firstName: 太郎
+                        division: 男子1部
+                        matchType: singles
+                        team: ABC クラブ
+                      - lastName: 山田
+                        firstName: 太郎
+                        division: 男子1部
+                        matchType: doubles
+                        team: ABC クラブ
+                        partnerLastName: 佐藤
+                        partnerFirstName: 次郎
+                        partnerTeam: ABC クラブ
+              doubles_divisions:
+                summary: ダブルスのみ・種別違いで4ペアずつ
+                value:
+                  data:
+                    tournament:
+                      name: ダブルス大会
+                      type: individual
+                      courtCount: 4
+                      courtAssignment: sequential
+                      finalsRule: none
+                    participants:
+                      # 男子ダブルス 4ペア
+                      - lastName: 山田
+                        firstName: 太郎
+                        division: 男子ダブルス
+                        matchType: doubles
+                        team: ABC クラブ
+                        partnerLastName: 佐藤
+                        partnerFirstName: 次郎
+                        partnerTeam: ABC クラブ
+                      - lastName: 鈴木
+                        firstName: 一郎
+                        division: 男子ダブルス
+                        matchType: doubles
+                        team: DEF クラブ
+                        partnerLastName: 高橋
+                        partnerFirstName: 健太
+                        partnerTeam: DEF クラブ
+                      - lastName: 田中
+                        firstName: 大輔
+                        division: 男子ダブルス
+                        matchType: doubles
+                        team: GHI クラブ
+                        partnerLastName: 伊藤
+                        partnerFirstName: 翔
+                        partnerTeam: GHI クラブ
+                      - lastName: 渡辺
+                        firstName: 拓也
+                        division: 男子ダブルス
+                        matchType: doubles
+                        team: JKL クラブ
+                        partnerLastName: 中村
+                        partnerFirstName: 優太
+                        partnerTeam: JKL クラブ
+                      # 混合ダブルス 4ペア
+                      - lastName: 小林
+                        firstName: 美咲
+                        division: 混合ダブルス
+                        matchType: doubles
+                        team: ABC クラブ
+                        partnerLastName: 山本
+                        partnerFirstName: 隆
+                        partnerTeam: ABC クラブ
+                      - lastName: 加藤
+                        firstName: さくら
+                        division: 混合ダブルス
+                        matchType: doubles
+                        team: DEF クラブ
+                        partnerLastName: 吉田
+                        partnerFirstName: 誠
+                        partnerTeam: DEF クラブ
+                      - lastName: 松本
+                        firstName: 葵
+                        division: 混合ダブルス
+                        matchType: doubles
+                        team: GHI クラブ
+                        partnerLastName: 井上
+                        partnerFirstName: 大地
+                        partnerTeam: GHI クラブ
+                      - lastName: 木村
+                        firstName: 遥
+                        division: 混合ダブルス
+                        matchType: doubles
+                        team: JKL クラブ
+                        partnerLastName: 林
+                        partnerFirstName: 裕樹
+                        partnerTeam: JKL クラブ
       responses:
         "200":
           description: 成功
@@ -122,6 +227,33 @@ paths:
                   value:
                     status: UNAUTHENTICATED
                     message: トークンが無効です
+                empty_token:
+                  summary: トークンが空
+                  value:
+                    status: UNAUTHENTICATED
+                    message: トークンが空です
+                revoked:
+                  summary: 失効済みトークン
+                  value:
+                    status: UNAUTHENTICATED
+                    message: トークンは失効しています
+                expired:
+                  summary: 有効期限切れ
+                  value:
+                    status: UNAUTHENTICATED
+                    message: トークンの有効期限が切れています
+        "403":
+          description: 権限エラー（トークンは有効だがスコープ不足）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthError"
+              examples:
+                scope_denied:
+                  summary: スコープ不足
+                  value:
+                    status: PERMISSION_DENIED
+                    message: このトークンには必要なスコープがありません
         "500":
           description: サーバー内部エラー
           content:
@@ -223,7 +355,10 @@ components:
           description: 名ふりがな
         division:
           type: string
-          description: "部門（例: 一般、シニア）"
+          description: |
+            部門（例: 一般、男子1部、シニア）。
+            リーグ作成時に `matchType` と組み合わせてカテゴリ分けに使われる。
+            同じ `division` + `matchType` の参加者が同一リーグにまとめられる。
         matchType:
           type: string
           enum:
@@ -231,23 +366,24 @@ components:
             - doubles
           description: |
             試合種別
-            - `singles`: シングルス
-            - `doubles`: ダブルス
+            - `singles`: シングルス — 1 レコード = 1 選手
+            - `doubles`: ダブルス — 1 レコード = 1 ペア。`partnerLastName` が必須
+            同一選手がシングルスとダブルス両方にエントリーする場合は、それぞれ別の participantInput として送信する。
         team:
           type: string
           description: 所属チーム
         partnerLastName:
           type: string
-          description: パートナー姓（`matchType` が `doubles` の場合に必須）
+          description: ペアの第2選手の姓（`matchType` が `doubles` の場合に必須）
         partnerFirstName:
           type: string
-          description: パートナー名
+          description: ペアの第2選手の名
         partnerLastNameFurigana:
           type: string
-          description: パートナー姓ふりがな
+          description: ペアの第2選手の姓ふりがな
         partnerFirstNameFurigana:
           type: string
-          description: パートナー名ふりがな
+          description: ペアの第2選手の名ふりがな
         partnerTeam:
           type: string
           description: パートナー所属チーム
@@ -301,5 +437,6 @@ components:
           type: string
           enum:
             - UNAUTHENTICATED
+            - PERMISSION_DENIED
         message:
           type: string
