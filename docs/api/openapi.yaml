@@ -377,6 +377,10 @@ components:
           description: |
             参加選手の配列。シングルスは 1 件、ダブルスは 2 件。
             将来的にトリプルス等にも対応可能な構造。
+        rallyId:
+          type: string
+          description: |
+            Rally 上の参加者 ID。外部連携用の識別子。省略可。
 
     MemberInput:
       type: object
