@@ -289,6 +289,118 @@ paths:
                   status: INTERNAL
                   message: インポートに失敗しました
 
+  /syncOrganizationMembers:
+    post:
+      operationId: syncOrganizationMembers
+      summary: 団体メンバーの同期
+      description: |
+        指定した団体のメンバーをメールアドレスのリストで同期します。
+        既存メンバーとの差分を計算し、追加・削除を行います。
+        オーナーロールのメンバーは削除対象から除外されます。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - data
+              properties:
+                data:
+                  $ref: "#/components/schemas/SyncOrganizationMembersData"
+            examples:
+              basic:
+                summary: メンバー同期
+                value:
+                  data:
+                    organizationId: org-abc123
+                    emails:
+                      - user1@example.com
+                      - user2@example.com
+                      - user3@example.com
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    $ref: "#/components/schemas/SyncOrganizationMembersResult"
+              example:
+                result:
+                  added:
+                    - uid-001
+                    - uid-002
+                  removed:
+                    - uid-003
+                  notFound:
+                    - unknown@example.com
+        "400":
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missing_org_id:
+                  summary: organizationId が空
+                  value:
+                    error:
+                      status: INVALID_ARGUMENT
+                      message: organizationId is required
+                missing_emails:
+                  summary: emails が空
+                  value:
+                    error:
+                      status: INVALID_ARGUMENT
+                      message: emails must not be empty
+        "401":
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthError"
+              examples:
+                missing:
+                  summary: ヘッダーなし
+                  value:
+                    status: UNAUTHENTICATED
+                    message: Authorization ヘッダーが必要です
+        "403":
+          description: 権限エラー（トークンは有効だがスコープ不足）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthError"
+              examples:
+                scope_denied:
+                  summary: スコープ不足
+                  value:
+                    status: PERMISSION_DENIED
+                    message: このトークンには必要なスコープがありません
+        "404":
+          description: 団体が存在しない
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  status: NOT_FOUND
+                  message: organization not found
+        "500":
+          description: サーバー内部エラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  status: INTERNAL
+                  message: メンバー同期に失敗しました
+
 components:
   securitySchemes:
     BearerAuth:
@@ -353,11 +465,27 @@ components:
           description: ハイブリッド方式の場合のみ。n巡目まで固定。`courtAssignment` が `hybrid` の場合に必須
         finalsRule:
           type: string
+          enum:
+            - none
+            - top1Only
+            - byParticipantCount
           default: none
-          description: 決勝トーナメントルール
+          description: |
+            決勝トーナメントルール
+            - `none`: 決勝トーナメントを行わない
+            - `top1Only`: 各リーグ1位のみ進出
+            - `byParticipantCount`: 参加数に応じて進出枠が変動（3人以下なら1位のみ、4人以上なら上位2名）
         seedingMethod:
           type: string
-          description: シード方式
+          enum:
+            - byLeagueOrder
+            - random
+            - manual
+          description: |
+            シード配置方式。`finalsRule` が `none` 以外の場合に指定可能。
+            - `byLeagueOrder`: リーグ番号順にトーナメント枠へ配置
+            - `random`: ランダム選定
+            - `manual`: 手動入力
 
     ParticipantInput:
       type: object
@@ -430,6 +558,47 @@ components:
             type: string
             format: uuid
           description: 作成された参加者の ID（リクエストの participants 配列と同じ順序）
+
+    SyncOrganizationMembersData:
+      type: object
+      required:
+        - organizationId
+        - emails
+      properties:
+        organizationId:
+          type: string
+          description: 同期対象の団体 ID
+        emails:
+          type: array
+          items:
+            type: string
+            format: email
+          minItems: 1
+          description: |
+            同期するメンバーのメールアドレス一覧。
+            このリストに含まれるメールアドレスのユーザーがメンバーとして追加され、
+            リストに含まれない既存メンバー（オーナーを除く）は削除される。
+            重複するメールアドレスは自動的に除外される。
+
+    SyncOrganizationMembersResult:
+      type: object
+      properties:
+        added:
+          type: array
+          items:
+            type: string
+          description: 新たに追加されたメンバーの UID 一覧
+        removed:
+          type: array
+          items:
+            type: string
+          description: 削除されたメンバーの UID 一覧（オーナーは含まれない）
+        notFound:
+          type: array
+          items:
+            type: string
+            format: email
+          description: Firebase Auth にユーザーが見つからなかったメールアドレス一覧
 
     ErrorResponse:
       type: object
