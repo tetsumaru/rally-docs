@@ -353,11 +353,27 @@ components:
           description: ハイブリッド方式の場合のみ。n巡目まで固定。`courtAssignment` が `hybrid` の場合に必須
         finalsRule:
           type: string
+          enum:
+            - none
+            - top1Only
+            - byParticipantCount
           default: none
-          description: 決勝トーナメントルール
+          description: |
+            決勝トーナメントルール
+            - `none`: 決勝トーナメントを行わない
+            - `top1Only`: 各リーグ1位のみ進出
+            - `byParticipantCount`: 参加数に応じて進出枠が変動（3人以下なら1位のみ、4人以上なら上位2名）
         seedingMethod:
           type: string
-          description: シード方式
+          enum:
+            - byLeagueOrder
+            - random
+            - manual
+          description: |
+            シード配置方式。`finalsRule` が `none` 以外の場合に指定可能。
+            - `byLeagueOrder`: リーグ番号順にトーナメント枠へ配置
+            - `random`: ランダム選定
+            - `manual`: 手動入力
 
     ParticipantInput:
       type: object
