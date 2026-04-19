@@ -401,6 +401,121 @@ paths:
                   status: INTERNAL
                   message: メンバー同期に失敗しました
 
+  /updateOrganization:
+    post:
+      operationId: updateOrganization
+      summary: 団体情報の更新
+      description: |
+        指定した団体の名前や都道府県を更新します。
+        更新したいフィールドのみを送信してください（部分更新）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - data
+              properties:
+                data:
+                  $ref: "#/components/schemas/UpdateOrganizationData"
+            examples:
+              update_name:
+                summary: 名前のみ更新
+                value:
+                  data:
+                    organizationId: org-abc123
+                    name: 新しい団体名
+              update_prefecture:
+                summary: 都道府県のみ更新
+                value:
+                  data:
+                    organizationId: org-abc123
+                    prefecture: 東京都
+              update_both:
+                summary: 名前と都道府県を同時に更新
+                value:
+                  data:
+                    organizationId: org-abc123
+                    name: 新しい団体名
+                    prefecture: 大阪府
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    $ref: "#/components/schemas/UpdateOrganizationResult"
+              example:
+                result:
+                  organizationId: org-abc123
+        "400":
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missing_org_id:
+                  summary: organizationId が空
+                  value:
+                    error:
+                      status: INVALID_ARGUMENT
+                      message: organizationId is required
+                no_fields:
+                  summary: 更新フィールドなし
+                  value:
+                    error:
+                      status: INVALID_ARGUMENT
+                      message: at least one of name or prefecture is required
+        "401":
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthError"
+              examples:
+                missing:
+                  summary: ヘッダーなし
+                  value:
+                    status: UNAUTHENTICATED
+                    message: Authorization ヘッダーが必要です
+        "403":
+          description: 権限エラー（トークンは有効だがスコープ不足）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthError"
+              examples:
+                scope_denied:
+                  summary: スコープ不足
+                  value:
+                    status: PERMISSION_DENIED
+                    message: このトークンには必要なスコープがありません
+        "404":
+          description: 団体が存在しない
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  status: NOT_FOUND
+                  message: organization not found
+        "500":
+          description: サーバー内部エラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  status: INTERNAL
+                  message: 団体情報の更新に失敗しました
+
 components:
   securitySchemes:
     BearerAuth:
@@ -558,6 +673,28 @@ components:
             type: string
             format: uuid
           description: 作成された参加者の ID（リクエストの participants 配列と同じ順序）
+
+    UpdateOrganizationData:
+      type: object
+      required:
+        - organizationId
+      properties:
+        organizationId:
+          type: string
+          description: 更新対象の団体 ID
+        name:
+          type: string
+          description: 団体名（省略時は更新しない）
+        prefecture:
+          type: string
+          description: 都道府県（省略時は更新しない）
+
+    UpdateOrganizationResult:
+      type: object
+      properties:
+        organizationId:
+          type: string
+          description: 更新された団体の ID
 
     SyncOrganizationMembersData:
       type: object
